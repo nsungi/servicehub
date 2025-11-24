@@ -1,0 +1,52 @@
+.message-container {
+    flex: 4;
+    background: #F6F6F7;
+    height: 60vh;
+    display: flex;
+    flex-direction: column;
+}
+.left-nav-gpt {
+    padding: 8px;
+    background-color:#F6F6F7;
+    border-right: 1px solid #C9CCCF;
+}
+
+.input-gpt{
+    flex: 1;
+    width: 85%;
+    margin: auto;
+}
+
+.input-gpt .Polaris-TextField__Backdrop {
+    border-radius: 8px !important;
+}
+
+.input-gpt .Polaris-TextField{
+    height: 5vh;
+    font-size: 14px !important;
+}
+
+.input-dropdown .Polaris-TextField {
+    height: fit-content !important;
+    font-size: 12px !important;
+}
+
+.input-dropdown .Polaris-TextField__Backdrop {
+    border-radius: 4px !important;
+}
+
+.input-dropdown .Polaris-TextField__Suffix {
+    margin: 0px !important;
+}
+
+.input-dropdown .Polaris-TextField__Input--suffixed {
+    padding-left: 4px !important;
+}
+
+.input-dropdown .Polaris-TextField__Input {
+    width: 140px !important;
+}
+
+.response-message .Polaris-HorizontalStack {
+    align-items: flex-start !important;
+}

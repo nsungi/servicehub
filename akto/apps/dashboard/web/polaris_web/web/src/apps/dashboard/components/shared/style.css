@@ -1,0 +1,148 @@
+.editor .codicon.codicon-light-bulb.lightbulb-glyph{
+    display: none;
+}
+
+.highlight{
+    background-color:#FFE9E8;
+    color: #D72B0C !important;
+    font-weight: 600 !important;
+}
+
+.highlightOther{
+    background-color:#FFE9E8;
+    color: #d77f0c !important;
+    font-weight: 600 !important;
+}
+
+.vulnerability-highlight{
+    background-color: rgba(139, 69, 255, 0.2) !important;
+    color: #6B46C1 !important;
+    font-weight: 600 !important;
+    border-radius: 2px !important;
+    padding: 1px 2px !important;
+    transition: all 0.2s ease !important;
+}
+
+.vulnerability-highlight:hover{
+    background-color: rgba(139, 69, 255, 0.35) !important;
+    box-shadow: 0 0 8px rgba(139, 69, 255, 0.5) !important;
+}
+
+.deleted-block{
+    border-left: 4px solid #D72C0D;
+    border-top: 1px solid #D72C0D;
+    border-bottom: 1px solid #D72C0D;
+    margin-left: -62px;
+    width: 100vw !important;
+    border-radius: 2px;
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.akto-decoded{
+    border-left: 4px solid var(--akto-primary);
+    border-top: 1px solid var(--akto-primary);
+    border-bottom: 1px solid var(--akto-primary);
+    margin-left: -62px;
+    width: 100vw !important;
+    border-radius: 2px;
+    background-color: rgba(224, 134, 247, 0.226);
+}
+
+.updated-content{
+    color: #916A00 !important;
+    font-weight: 600 !important;
+    background-color: #FFEBD3 !important;
+}
+
+.added-block{
+    border-left: 4px solid #238636;
+    border-top: 1px solid #238636;
+    border-bottom: 1px solid #238636;
+    margin-left: -62px;
+    width: 100vw !important;
+    border-radius: 2px;
+    background-color: rgba(0, 255, 0, 0.1);
+}
+
+.new-diff .monaco-hover{
+    background-color: #FFF5EA !important;
+    border-radius: 2px;
+    border: 2px solid #B98900 !important;
+}
+
+.new-diff .active-line{
+    margin-left: -62px;
+    width: 550px !important;
+    border-radius: 2px;
+    animation: colorChange 0.8s ease forwards
+}
+@keyframes colorChange {
+    0% {
+      background-color: unset; /* Start with the original color */
+    }
+    50% {
+      background-color: rgba(98,0,234,0.4); /* Change to the new color at 50% of the animation */
+    }
+    100% {
+      background-color: unset; /* Revert to the original color at the end of the animation */
+    }
+  }
+
+.Polaris-DropZone{
+    min-height: 0 !important;
+}
+
+.stepper-box {
+    height: 6px;
+    border-radius: 4px;
+    background: #dadae1;
+}
+
+.active {
+    background: #00A47C;
+}
+
+.tooltipSpan {
+    overflow-x:hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap;
+    max-width: 63vw;
+}
+
+.modified .line-numbers{
+    display: none !important;
+}
+
+.editor .margin-view-overlays{
+    border-right: 1px solid #d3ded3;
+}
+
+.pie-chart .highcharts-button{
+    display: none !important;
+}
+
+.empty-icon-container .Polaris-Avatar__Image{
+    width: 92px !important;
+    height: 92px !important;
+    border-radius: unset !important;
+}
+
+.styled-name label.Polaris-Choice.Polaris-Checkbox__ChoiceLabel {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.styled-name .Polaris-Choice__Control {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.control-row .Polaris-DataTable__Cell {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    vertical-align: middle;
+}
+
+.control-row .Polaris-DataTable__Cell--firstColumn {
+    padding-left: 8px !important;
+}

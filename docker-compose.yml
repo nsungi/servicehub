@@ -1,0 +1,239 @@
+version: "3.9"
+
+services:
+  ############################################################
+  # Keycloak
+  # - Configured to use your shared Postgres instance.
+  # - You MUST provide in your .env (no defaults):
+  #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
+  #     POSTGRES_PASSWORD, POSTGRES_DB_KEYCLOAK
+  ############################################################
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: keycloak
+    restart: unless-stopped
+    environment:
+      # Database setup (Postgres only)
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB_KEYCLOAK}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Initial admin user (used on first startup)
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+    command:
+      - start-dev
+    ports:
+      # No default host port; you must set KEYCLOAK_HTTP_PORT in .env
+      - "${KEYCLOAK_HTTP_PORT}:8080"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # Flowise (AI orchestration, uses local sqlite for demo)
+  # - Configured to use shared Postgres by default.
+  # - You MUST provide in your .env (no defaults):
+  #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
+  #     POSTGRES_PASSWORD, POSTGRES_DB_FLOWISE
+  ############################################################
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: flowise
+    restart: unless-stopped
+    ports:
+      # No default host port; you must set FLOWISE_HTTP_PORT in .env
+      - "${FLOWISE_HTTP_PORT}:3000"
+    volumes:
+      - ~/.flowise:/root/.flowise
+    environment:
+      # Essential Flowise vars
+      PORT: 3000
+
+      # Database configuration (Postgres only)
+      DATABASE_TYPE: postgres
+      DATABASE_SSL: "false"
+      DATABASE_PATH: /root/.flowise
+
+      # Optional Postgres connection (used when DATABASE_TYPE=postgres)
+      DATABASE_HOST: ${POSTGRES_HOST}
+      DATABASE_PORT: ${POSTGRES_PORT}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB_FLOWISE}
+
+      # Basic persistence paths (optional but recommended)
+      LOG_PATH: /root/.flowise/logs
+      SECRETKEY_PATH: /root/.flowise
+      BLOB_STORAGE_PATH: /root/.flowise/storage
+
+      # Minimal auth / URL setup (can be customized later)
+      APP_URL: ${APP_URL}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-3000}/api/v1/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    entrypoint: /bin/sh -c "sleep 3; flowise start"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # nginx-ui (manages nginx configs, own internal storage)
+  ############################################################
+  nginx-ui:
+    image: uozi/nginx-ui:latest
+    container_name: nginx-ui
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: ${TZ:-UTC}
+      # Use a dedicated logical database/schema name for nginx-ui
+      # (the underlying driver configuration is handled in the app)
+      NGINX_UI_DB_NAME: ${POSTGRES_DB_NGINX_UI}
+    volumes:
+      - ./volumes/nginx:/etc/nginx
+      - ./volumes/nginx-ui:/etc/nginx-ui
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      # No default host ports; you must set NGINX_UI_HTTP_PORT / NGINX_UI_HTTPS_PORT
+      - "${NGINX_UI_HTTP_PORT}:80"
+      - "${NGINX_UI_HTTPS_PORT}:443"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # CasiBase (AI knowledge database)
+  # - Uses the same external Postgres instance via DSN.
+  # - Configure in .env:
+  #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
+  #     POSTGRES_PASSWORD, POSTGRES_DB_CASIBASE
+  ############################################################
+  casibase:
+    image: casbin/casibase:latest
+    container_name: casibase
+    restart: unless-stopped
+    environment:
+      driverName: postgres
+      dataSourceName: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB_CASIBASE:-casibase}?sslmode=disable
+    ports:
+      # No default host port; you must set CASIBASE_HTTP_PORT
+      - "${CASIBASE_HTTP_PORT}:14000"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # LobeChat (chat UI, typically backed by Postgres)
+  # - Expects DATABASE_URL; we build it from shared
+  #   POSTGRES_* variables.
+  # - Configure in .env:
+  #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
+  #     POSTGRES_PASSWORD, POSTGRES_DB_LOBECHAT
+  ############################################################
+  lobechat:
+    image: lobehub/lobe-chat:latest
+    container_name: lobechat
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB_LOBECHAT}
+    ports:
+      # No default host port; you must set LOBECHAT_HTTP_PORT
+      - "${LOBECHAT_HTTP_PORT}:3210"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # Entropy Data CE (data product platform)
+  # - Uses the same external Postgres instance via Spring
+  #   datasource env vars.
+  # - You MUST provide in your .env:
+  #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
+  #     POSTGRES_PASSWORD, POSTGRES_DB_ENTROPYDATA
+  #     ENTROPYDATA_HTTP_PORT, APPLICATION_HOST_WEB,
+  #     APPLICATION_MAIL_FROM, SPRING_MAIL_* (SMTP settings)
+  ############################################################
+  entropydata:
+    image: entropydata/entropy-data-ce:latest
+    container_name: entropydata
+    restart: unless-stopped
+    environment:
+      # Public URL of the web app (used in emails)
+      APPLICATION_HOST_WEB: ${ENTROPYDATA_HOST_WEB}
+      # From address for transactional emails
+      APPLICATION_MAIL_FROM: ${ENTROPYDATA_MAIL_FROM}
+
+      # Database (Postgres only, shared instance)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB_ENTROPYDATA}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # SMTP configuration (must be provided for real deployments)
+      SPRING_MAIL_HOST: ${ENTROPYDATA_SMTP_HOST}
+      SPRING_MAIL_PORT: ${ENTROPYDATA_SMTP_PORT}
+      SPRING_MAIL_USERNAME: ${ENTROPYDATA_SMTP_USER}
+      SPRING_MAIL_PASSWORD: ${ENTROPYDATA_SMTP_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${ENTROPYDATA_SMTP_AUTH}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${ENTROPYDATA_SMTP_STARTTLS}
+    ports:
+      - "${ENTROPYDATA_HTTP_PORT}:8085"
+    networks:
+      - nnv-net
+
+  ############################################################
+  # Akto API Security Platform
+  # - Uses its official Mongo-based stack (Mongo is required).
+  # - Runs alongside your shared Postgres without conflict.
+  # - You MUST provide in your .env:
+  #     AKTO_DASHBOARD_HTTP_PORT  (host → 8080 in container)
+  #     AKTO_PUPPETEER_HTTP_PORT  (host → 3000 in container)
+  ############################################################
+  mongo:
+    image: mongo:6.0.1
+    container_name: mongo
+    restart: on-failure:10
+    volumes:
+      - akto-mongodata:/data/db
+    networks:
+      - nnv-net
+
+  akto-dashboard:
+    image: aktosecurity/akto-api-security-dashboard:local
+    container_name: akto-dashboard
+    env_file: ./akto/docker.env
+    restart: always
+    depends_on:
+      - mongo
+    ports:
+      - "${AKTO_DASHBOARD_HTTP_PORT}:8080"
+    networks:
+      - nnv-net
+
+  akto-testing:
+    image: aktosecurity/akto-api-testing:local
+    container_name: akto-testing
+    env_file: ./akto/docker.env
+    restart: always
+    depends_on:
+      - mongo
+    networks:
+      - nnv-net
+
+  akto-puppeteer-replay:
+    image: aktosecurity/akto-puppeteer-replay:latest
+    container_name: akto-puppeteer-replay
+    restart: always
+    ports:
+      - "${AKTO_PUPPETEER_HTTP_PORT}:3000"
+    networks:
+      - nnv-net
+
+networks:
+  nnv-net:
+    driver: bridge
+
+volumes:
+  akto-mongodata:
+
+

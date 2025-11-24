@@ -1,0 +1,133 @@
+<script setup lang="ts">
+import { FileOutlined } from '@ant-design/icons-vue'
+import { useRouteQuery } from '@vueuse/router'
+import nginxLog from '@/api/nginx_log'
+import FooterToolBar from '@/components/FooterToolbar'
+import DashboardViewer from './dashboard/DashboardViewer.vue'
+import RawLogViewer from './raw/RawLogViewer.vue'
+import StructuredLogViewer from './structured/StructuredLogViewer.vue'
+
+// Route and router
+const route = useRoute()
+const router = useRouter()
+
+// Setup log control data based on route params
+const logPath = computed(() => route.query.path?.toString() ?? '')
+const logType = computed(() => {
+  if (route.path.indexOf('access') > 0)
+    return 'access'
+  return route.path.indexOf('error') > 0 ? 'error' : 'site'
+})
+
+const viewMode = useRouteQuery<'raw' | 'structured' | 'dashboard'>('view', 'structured')
+
+// Indexing status
+const isIndexingEnabled = ref(false)
+
+onMounted(async () => {
+  try {
+    const res = await nginxLog.getAdvancedIndexingStatus()
+    isIndexingEnabled.value = !!res.enabled
+  }
+  catch (err) {
+    console.error('Failed to get indexing status:', err)
+    isIndexingEnabled.value = false
+  }
+})
+
+// Check if this is an error log
+const isErrorLog = computed(() => {
+  return logType.value === 'error' || logPath.value.includes('error.log') || logPath.value.includes('error_log')
+})
+
+const autoRefresh = ref(true)
+
+watch(viewMode, v => {
+  if (v === 'structured' && (!isIndexingEnabled.value || isErrorLog.value)) {
+    viewMode.value = 'raw'
+  }
+}, { immediate: true })
+
+// View mode logic: set defaults based on log type and indexing status
+watch([isErrorLog, isIndexingEnabled], ([isError, enabled], [prevIsError, prevEnabled]) => {
+  // Only set default when conditions change or initial load
+  const isInitialLoad = prevIsError === undefined && prevEnabled === undefined
+  const conditionsChanged = isError !== prevIsError || enabled !== prevEnabled
+
+  if (isInitialLoad || conditionsChanged) {
+    if (isError) {
+      // Error logs always use raw mode
+      viewMode.value = 'raw'
+    }
+    else if (!enabled) {
+      // Indexing disabled: default to raw
+      viewMode.value = 'raw'
+    }
+    else if (enabled && logType.value === 'access') {
+      // Indexing enabled for access logs: default to structured
+      viewMode.value = 'structured'
+    }
+  }
+}, { immediate: true })
+</script>
+
+<template>
+  <ACard
+    :title="$gettext('Nginx Log')"
+    :bordered="false"
+  >
+    <!-- Log Path Header -->
+    <div v-if="logPath" class="mb-4 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 rounded text-xs text-gray-500 dark:text-gray-400">
+      <FileOutlined class="mr-2" />
+      <span class="font-mono">{{ logPath }}</span>
+    </div>
+
+    <template #extra>
+      <div class="flex items-center gap-4">
+        <!-- View Mode Toggle (hide for error logs or when indexing is disabled) -->
+        <div v-if="!isErrorLog && isIndexingEnabled" class="flex items-center">
+          <ASegmented
+            v-model:value="viewMode"
+            :options="[
+              { label: $gettext('Structured'), value: 'structured' },
+              { label: $gettext('Dashboard'), value: 'dashboard' },
+              { label: $gettext('Raw'), value: 'raw' },
+            ]"
+          />
+        </div>
+
+        <!-- Auto Refresh (only for raw mode) -->
+        <div v-if="viewMode === 'raw'" class="flex items-center">
+          <span class="mr-2">{{ $gettext('Auto Refresh') }}</span>
+          <ASwitch v-model:checked="autoRefresh" />
+        </div>
+      </div>
+    </template>
+
+    <!-- Raw Log View -->
+    <RawLogViewer
+      v-if="viewMode === 'raw'"
+      :log-path="logPath"
+      :log-type="logType"
+      :auto-refresh="autoRefresh"
+    />
+
+    <!-- Structured Log View -->
+    <StructuredLogViewer
+      v-else-if="viewMode === 'structured'"
+      :log-path="logPath"
+    />
+
+    <!-- Dashboard View -->
+    <DashboardViewer
+      v-else-if="viewMode === 'dashboard'"
+      :log-path="logPath"
+    />
+
+    <FooterToolBar v-if="logPath">
+      <AButton @click="router.go(-1)">
+        {{ $gettext('Back') }}
+      </AButton>
+    </FooterToolBar>
+  </ACard>
+</template>
